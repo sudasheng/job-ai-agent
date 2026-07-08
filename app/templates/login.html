@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}登录 - 求职 AI 助手{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-card">
+        <h2 class="auth-title">登录</h2>
+        <form id="loginForm" class="auth-form">
+            <div class="form-group">
+                <label for="username">用户名 / 邮箱</label>
+                <input type="text" id="username" name="username" required placeholder="请输入用户名或邮箱">
+            </div>
+            <div class="form-group">
+                <label for="password">密码</label>
+                <input type="password" id="password" name="password" required placeholder="请输入密码">
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary btn-block">登录</button>
+            </div>
+            <div class="form-footer">
+                <span>还没有账号？</span>
+                <a href="#" id="showRegister">立即注册</a>
+            </div>
+        </form>
+
+        <form id="registerForm" class="auth-form" style="display: none;">
+            <div class="form-group">
+                <label for="regUsername">用户名</label>
+                <input type="text" id="regUsername" name="username" required minlength="3" placeholder="请输入用户名">
+            </div>
+            <div class="form-group">
+                <label for="regEmail">邮箱</label>
+                <input type="email" id="regEmail" name="email" required placeholder="请输入邮箱">
+            </div>
+            <div class="form-group">
+                <label for="regPassword">密码</label>
+                <input type="password" id="regPassword" name="password" required minlength="6" placeholder="请输入密码">
+            </div>
+            <div class="form-group">
+                <label for="regNickname">昵称</label>
+                <input type="text" id="regNickname" name="nickname" placeholder="请输入昵称（可选）">
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary btn-block">注册</button>
+            </div>
+            <div class="form-footer">
+                <span>已有账号？</span>
+                <a href="#" id="showLogin">立即登录</a>
+            </div>
+        </form>
+
+        <div id="authMessage" class="auth-message"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
+    const authMessage = document.getElementById('authMessage');
+
+    // 切换表单
+    document.getElementById('showRegister').addEventListener('click', function(e) {
+        e.preventDefault();
+        loginForm.style.display = 'none';
+        registerForm.style.display = 'block';
+        authMessage.innerHTML = '';
+    });
+
+    document.getElementById('showLogin').addEventListener('click', function(e) {
+        e.preventDefault();
+        registerForm.style.display = 'none';
+        loginForm.style.display = 'block';
+        authMessage.innerHTML = '';
+    });
+
+    // 登录
+    loginForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const formData = new FormData(loginForm);
+        const data = {
+            username: formData.get('username'),
+            password: formData.get('password')
+        };
+
+        try {
+            const resp = await fetch('/api/v1/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            const result = await resp.json();
+
+            if (resp.ok && result.data) {
+                localStorage.setItem('token', result.data.access_token);
+                localStorage.setItem('refreshToken', result.data.refresh_token);
+                localStorage.setItem('user', JSON.stringify(result.data.user));
+                authMessage.innerHTML = '<div class="message success">登录成功，正在跳转...</div>';
+                setTimeout(() => { window.location.href = '/'; }, 1000);
+            } else {
+                authMessage.innerHTML = '<div class="message error">' + (result.message || '登录失败') + '</div>';
+            }
+        } catch (err) {
+            authMessage.innerHTML = '<div class="message error">网络错误，请重试</div>';
+        }
+    });
+
+    // 注册
+    registerForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const formData = new FormData(registerForm);
+        const data = {
+            username: formData.get('username'),
+            email: formData.get('email'),
+            password: formData.get('password'),
+            nickname: formData.get('nickname') || undefined
+        };
+
+        try {
+            const resp = await fetch('/api/v1/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            const result = await resp.json();
+
+            if (resp.ok) {
+                authMessage.innerHTML = '<div class="message success">注册成功，请登录</div>';
+                loginForm.style.display = 'block';
+                registerForm.style.display = 'none';
+            } else {
+                authMessage.innerHTML = '<div class="message error">' + (result.message || '注册失败') + '</div>';
+            }
+        } catch (err) {
+            authMessage.innerHTML = '<div class="message error">网络错误，请重试</div>';
+        }
+    });
+});
+</script>
+{% endblock %}

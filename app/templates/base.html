@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}求职 AI 助手{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {% block head_extra %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/" class="nav-brand">求职 AI 助手</a>
+            <div class="nav-links">
+                <a href="/job-search" class="nav-link">岗位搜索</a>
+                <a href="/interview" class="nav-link">面试练习</a>
+                <a href="/chat" class="nav-link">AI 聊天</a>
+                <div class="nav-auth" id="navAuth">
+                    <a href="/login" class="nav-link">登录</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+        <div class="footer-content">
+            <p>&copy; 2025 Job AI Agent. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="/static/js/common.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

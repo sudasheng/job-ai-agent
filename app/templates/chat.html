@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}AI 聊天 - 求职 AI 助手{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="page-header">
+        <h1>AI 聊天</h1>
+        <p>与求职 AI 助手对话，获取岗位分析、面试建议和职业指导</p>
+    </div>
+
+    <div class="chat-container">
+        <div class="chat-messages" id="chatMessages">
+            <div class="chat-welcome">
+                <p>你好！我是求职 AI 助手，可以帮你：</p>
+                <ul>
+                    <li>分析岗位要求，匹配你的技能</li>
+                    <li>提供面试技巧和注意事项</li>
+                    <li>优化简历建议</li>
+                    <li>职业发展规划建议</li>
+                </ul>
+                <p>请输入你的问题开始对话。</p>
+            </div>
+        </div>
+
+        <div class="chat-input-area">
+            <textarea id="chatInput" rows="2" placeholder="输入你的问题..." class="chat-input"></textarea>
+            <div class="chat-actions">
+                <select id="contextType" class="context-select">
+                    <option value="general">通用对话</option>
+                    <option value="interview">面试相关</option>
+                    <option value="job_search">岗位搜索</option>
+                </select>
+                <button id="sendBtn" class="btn btn-primary">发送</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const chatMessages = document.getElementById('chatMessages');
+    const chatInput = document.getElementById('chatInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const contextType = document.getElementById('contextType');
+
+    let chatHistory = [];
+
+    // 发送消息
+    async function sendMessage() {
+        const content = chatInput.value.trim();
+        if (!content) return;
+
+        const token = localStorage.getItem('token');
+        if (!token) {
+            alert('请先登录');
+            window.location.href = '/login';
+            return;
+        }
+
+        // 显示用户消息
+        appendMessage('user', content);
+        chatInput.value = '';
+        chatInput.focus();
+
+        // 显示加载状态
+        const loadingId = appendMessage('assistant', '思考中...', true);
+
+        try {
+            const resp = await fetch('/api/v1/chat/send', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                },
+                body: JSON.stringify({
+                    content: content,
+                    context_type: contextType.value,
+                    history_limit: 10
+                })
+            });
+            const result = await resp.json();
+
+            // 移除加载状态
+            const loadingEl = document.getElementById(loadingId);
+            if (loadingEl) loadingEl.remove();
+
+            if (resp.ok && result.data) {
+                appendMessage('assistant', result.data.assistant_message.content);
+            } else {
+                appendMessage('assistant', '抱歉，回复出错了: ' + (result.message || ''));
+            }
+        } catch (err) {
+            const loadingEl = document.getElementById(loadingId);
+            if (loadingEl) loadingEl.remove();
+            appendMessage('assistant', '网络错误: ' + err.message);
+        }
+    }
+
+    sendBtn.addEventListener('click', sendMessage);
+    chatInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
+
+    // 追加消息
+    function appendMessage(role, content, isLoading) {
+        const msgId = 'msg-' + Date.now();
+        const div = document.createElement('div');
+        div.className = 'chat-message ' + role;
+        div.id = msgId;
+
+        if (isLoading) {
+            div.innerHTML = '<div class="message-content loading-dots">' + content + '</div>';
+        } else {
+            div.innerHTML = '<div class="message-content">' + formatContent(content) + '</div>';
+        }
+
+        chatMessages.appendChild(div);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        return msgId;
+    }
+
+    function formatContent(text) {
+        return text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/\n/g, '<br>')
+            .replace(/`([^`]+)`/g, '<code>$1</code>');
+    }
+});
+</script>
+{% endblock %}

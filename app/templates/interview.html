@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+{% block title %}面试练习 - 求职 AI 助手{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="page-header">
+        <h1>面试练习</h1>
+        <p>基于真实岗位和 AI 知识库，生成针对性面试问题并评分</p>
+    </div>
+
+    <div class="interview-setup" id="interviewSetup">
+        <div class="setup-card">
+            <h3>创建面试练习</h3>
+            <div class="form-group">
+                <label for="direction">面试方向</label>
+                <input type="text" id="direction" placeholder="如 Python后端开发、前端开发" class="form-input">
+            </div>
+            <div class="form-group">
+                <label for="questionCount">问题数量</label>
+                <select id="questionCount" class="form-input">
+                    <option value="3">3 题</option>
+                    <option value="5" selected>5 题</option>
+                    <option value="8">8 题</option>
+                    <option value="10">10 题</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>问题类型</label>
+                <div class="checkbox-group">
+                    <label><input type="checkbox" name="questionType" value="technical" checked> 技术题</label>
+                    <label><input type="checkbox" name="questionType" value="behavioral" checked> 行为题</label>
+                    <label><input type="checkbox" name="questionType" value="scenario"> 场景题</label>
+                    <label><input type="checkbox" name="questionType" value="theory"> 理论题</label>
+                </div>
+            </div>
+            <button id="startInterview" class="btn btn-primary btn-block">开始面试</button>
+        </div>
+
+        <div class="history-section" id="historySection">
+            <h3>历史面试</h3>
+            <div id="historyList" class="history-list">
+                <div class="empty-state"><p>暂无面试记录</p></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="interview-session" id="interviewSession" style="display: none;">
+        <div class="session-header">
+            <h2 id="sessionTitle"></h2>
+            <div class="session-progress">
+                <span id="progressText">0/0</span>
+                <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+            </div>
+        </div>
+
+        <div id="questionArea" class="question-area"></div>
+
+        <div class="answer-area" id="answerArea">
+            <h3>你的回答</h3>
+            <textarea id="userAnswer" rows="6" placeholder="在此输入你的回答..." class="form-input"></textarea>
+            <button id="submitAnswer" class="btn btn-primary">提交回答</button>
+        </div>
+
+        <div id="scoreResult" class="score-result" style="display: none;"></div>
+
+        <div class="session-actions">
+            <button id="nextQuestion" class="btn btn-secondary" style="display: none;">下一题</button>
+            <button id="finishInterview" class="btn btn-outline">结束面试</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let sessionId = null;
+    let currentQuestion = null;
+    let questions = [];
+    let currentIndex = 0;
+
+    // 加载历史
+    loadHistory();
+
+    // 开始面试
+    document.getElementById('startInterview').addEventListener('click', async function() {
+        const direction = document.getElementById('direction').value.trim();
+        if (!direction) {
+            alert('请输入面试方向');
+            return;
+        }
+
+        const questionCount = parseInt(document.getElementById('questionCount').value);
+        const types = [];
+        document.querySelectorAll('input[name="questionType"]:checked').forEach(function(cb) {
+            types.push(cb.value);
+        });
+
+        const token = localStorage.getItem('token');
+        if (!token) {
+            alert('请先登录');
+            window.location.href = '/login';
+            return;
+        }
+
+        try {
+            const resp = await fetch('/api/v1/interview/sessions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                },
+                body: JSON.stringify({
+                    direction: direction,
+                    question_count: questionCount,
+                    question_types: types
+                })
+            });
+            const result = await resp.json();
+
+            if (resp.ok && result.data) {
+                sessionId = result.data.id;
+                document.getElementById('interviewSetup').style.display = 'none';
+                document.getElementById('interviewSession').style.display = 'block';
+                document.getElementById('sessionTitle').textContent = result.data.title + ' (' + result.data.direction + ')';
+                loadSession(sessionId);
+            } else {
+                alert(result.message || '创建失败');
+            }
+        } catch (err) {
+            alert('网络错误: ' + err.message);
+        }
+    });
+
+    // 加载面试会话
+    async function loadSession(sid) {
+        const token = localStorage.getItem('token');
+        try {
+            const resp = await fetch('/api/v1/interview/sessions/' + sid, {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            const result = await resp.json();
+
+            if (resp.ok && result.data) {
+                questions = result.data.questions || [];
+                currentIndex = 0;
+                updateProgress();
+                showQuestion();
+            }
+        } catch (err) {
+            console.error('加载失败:', err);
+        }
+    }
+
+    // 显示问题
+    function showQuestion() {
+        if (currentIndex >= questions.length) {
+            document.getElementById('questionArea').innerHTML = '<div class="empty-state"><p>所有问题已完成！</p></div>';
+            document.getElementById('answerArea').style.display = 'none';
+            document.getElementById('finishInterview').textContent = '查看结果';
+            return;
+        }
+
+        currentQuestion = questions[currentIndex];
+        const q = currentQuestion;
+        document.getElementById('questionArea').innerHTML = `
+            <div class="question-card">
+                <div class="question-header">
+                    <span class="question-num">第 ${currentIndex + 1} 题</span>
+                    <span class="question-type-badge">${q.question_type}</span>
+                </div>
+                <p class="question-text">${escapeHtml(q.question_text)}</p>
+                ${q.reference_answer ? '<details class="reference-answer"><summary>参考答案</summary><p>' + escapeHtml(q.reference_answer) + '</p></details>' : ''}
+            </div>
+        `;
+        document.getElementById('userAnswer').value = '';
+        document.getElementById('scoreResult').style.display = 'none';
+        document.getElementById('submitAnswer').style.display = 'inline-block';
+        document.getElementById('nextQuestion').style.display = 'none';
+        document.getElementById('answerArea').style.display = 'block';
+
+        if (q.user_answer) {
+            document.getElementById('userAnswer').value = q.user_answer;
+            document.getElementById('submitAnswer').style.display = 'none';
+            showScore(q);
+        }
+
+        updateProgress();
+    }
+
+    // 提交答案
+    document.getElementById('submitAnswer').addEventListener('click', async function() {
+        const answer = document.getElementById('userAnswer').value.trim();
+        if (!answer) {
+            alert('请输入你的回答');
+            return;
+        }
+
+        const token = localStorage.getItem('token');
+        try {
+            const resp = await fetch('/api/v1/interview/sessions/' + sessionId + '/answer', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                },
+                body: JSON.stringify({
+                    question_id: currentQuestion.id,
+                    user_answer: answer
+                })
+            });
+            const result = await resp.json();
+
+            if (resp.ok && result.data) {
+                showScore(result.data);
+                document.getElementById('submitAnswer').style.display = 'none';
+                document.getElementById('nextQuestion').style.display = 'inline-block';
+                updateProgress();
+            } else {
+                alert(result.message || '提交失败');
+            }
+        } catch (err) {
+            alert('网络错误: ' + err.message);
+        }
+    });
+
+    // 显示评分
+    function showScore(scoreData) {
+        const passed = scoreData.passed || (scoreData.score >= 60);
+        document.getElementById('scoreResult').style.display = 'block';
+        document.getElementById('scoreResult').innerHTML = `
+            <div class="score-card ${passed ? 'passed' : 'failed'}">
+                <div class="score-value">${scoreData.score} 分</div>
+                <div class="score-status">${passed ? '通过' : '未通过'}</div>
+                <div class="score-comment">${escapeHtml(scoreData.comment || '')}</div>
+            </div>
+        `;
+    }
+
+    // 下一题
+    document.getElementById('nextQuestion').addEventListener('click', function() {
+        currentIndex++;
+        showQuestion();
+    });
+
+    // 结束面试
+    document.getElementById('finishInterview').addEventListener('click', function() {
+        window.location.reload();
+    });
+
+    // 更新进度
+    function updateProgress() {
+        const answered = questions.filter(function(q) { return q.user_answer; }).length;
+        const total = questions.length;
+        document.getElementById('progressText').textContent = answered + '/' + total;
+        const pct = total > 0 ? (answered / total) * 100 : 0;
+        document.getElementById('progressFill').style.width = pct + '%';
+    }
+
+    // 加载历史
+    async function loadHistory() {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        try {
+            const resp = await fetch('/api/v1/interview/sessions?page=1&page_size=5', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            const result = await resp.json();
+
+            if (resp.ok && result.data && result.data.items.length > 0) {
+                let html = '';
+                result.data.items.forEach(function(s) {
+                    html += '<div class="history-item">';
+                    html += '  <div class="history-title">' + escapeHtml(s.title) + '</div>';
+                    html += '  <div class="history-meta">状态: ' + s.status + ' | 得分: ' + (s.avg_score || 'N/A') + '</div>';
+                    html += '</div>';
+                });
+                document.getElementById('historyList').innerHTML = html;
+            }
+        } catch (err) {
+            console.error('加载历史失败:', err);
+        }
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+});
+</script>
+{% endblock %}

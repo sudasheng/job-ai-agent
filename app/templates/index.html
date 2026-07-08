@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}求职 AI 助手 - 首页{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <div class="hero-content">
+        <h1 class="hero-title">智能求职助手</h1>
+        <p class="hero-subtitle">AI 驱动的岗位搜索、面试练习和职业规划平台</p>
+        <div class="hero-actions">
+            <a href="/job-search" class="btn btn-primary">开始搜索岗位</a>
+            <a href="/interview" class="btn btn-secondary">模拟面试练习</a>
+        </div>
+    </div>
+</div>
+
+<div class="features">
+    <div class="feature-card">
+        <div class="feature-icon">&#128269;</div>
+        <h3>岗位搜索</h3>
+        <p>基于 Boss 直聘实时数据，智能搜索和筛选岗位信息，精准匹配你的求职方向。</p>
+    </div>
+    <div class="feature-card">
+        <div class="feature-icon">&#128172;</div>
+        <h3>AI 聊天</h3>
+        <p>随时与 AI 助手交流，获取岗位分析、简历优化建议和职业发展指导。</p>
+    </div>
+    <div class="feature-card">
+        <div class="feature-icon">&#127891;</div>
+        <h3>面试练习</h3>
+        <p>基于真实岗位 JD 和 RAG 知识库，生成针对性面试问题，AI 评分反馈。</p>
+    </div>
+</div>
+{% endblock %}
