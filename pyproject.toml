@@ -3,8 +3,7 @@ name = "job-ai-agent"
 version = "1.0.0"
 description = "AI-Powered Job Search Assistant System"
 requires-python = ">=3.11"
-readme = "README.md"
-license = { text = "MIT" }
+license = "MIT"
 authors = [
     { name = "Job AI Agent Team" }
 ]
@@ -81,3 +80,6 @@ testpaths = ["tests"]
 [build-system]
 requires = ["setuptools>=75.0", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
