@@ -13,9 +13,12 @@ from app.schemas.interview import (
     AnswerScoreResponse,
     AnswerSubmitRequest,
     InterviewCreateRequest,
+    InterviewGraphResponse,
+    InterviewGraphStartRequest,
     InterviewSessionDetailResponse,
     InterviewSessionResponse,
 )
+from app.services.interview_graph_service import InterviewGraphService
 from app.services.interview_service import InterviewService
 
 router = APIRouter(prefix="/interview", tags=["面试"])
@@ -92,3 +95,40 @@ async def submit_answer(
             passed=(question.score or 0) >= 60,
         ),
     )
+
+
+# ==================== LangGraph + ReAct 面试流程 API ====================
+
+@router.post("/graph/start", response_model=ResponseModel[InterviewGraphResponse])
+async def start_graph_interview(
+    data: InterviewGraphStartRequest,
+    current_user: User = Depends(require_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """启动/继续 LangGraph 面试会话。
+
+    首次调用：传入岗位描述（文字/链接），ReAct 子图自动采集岗位信息。
+    后续调用：传入答题内容，主图自动生成下一题或最终报告。
+    """
+    service = InterviewGraphService(db)
+    result = await service.start_or_continue_session(
+        user_id=current_user.id,
+        user_input=data.user_input,
+        session_id=data.session_id,
+    )
+    return ResponseModel(
+        message="处理完成",
+        data=InterviewGraphResponse(**result),
+    )
+
+
+@router.get("/graph/{session_id}", response_model=ResponseModel)
+async def get_graph_session(
+    session_id: str,
+    current_user: User = Depends(require_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """获取 LangGraph 面试会话详情（含状态图当前状态）。"""
+    service = InterviewGraphService(db)
+    detail = await service.get_session_detail(session_id, current_user.id)
+    return ResponseModel(data=detail)

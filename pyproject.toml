@@ -30,6 +30,8 @@ dependencies = [
     "langchain-core>=0.3.0",
     "langchain-community>=0.3.0",
     "langchain-openai>=0.2.0",
+    "langchain-chroma>=0.2.0",
+    "langgraph>=0.3.0",
 
     # Web Scraping
     "playwright>=1.48.0",

@@ -76,3 +76,25 @@ class AnswerScoreResponse(BaseModel):
     passed: bool = Field(description="是否通过（>= 60 分）")
 
     model_config = {"from_attributes": True}
+
+
+# ---- LangGraph 面试流程专用 ----
+
+class InterviewGraphStartRequest(BaseModel):
+    """开始/继续 LangGraph 面试请求。"""
+
+    user_input: str = Field(min_length=1, description="用户输入（岗位描述/答题内容）")
+    session_id: str | None = Field(default=None, description="已有会话 ID，新会话传 None")
+
+
+class InterviewGraphResponse(BaseModel):
+    """LangGraph 面试响应。"""
+
+    type: str = Field(description="响应类型：question / report / hint / error")
+    round: int | None = Field(default=None, description="当前轮次（type=question 时有值）")
+    question: str | None = Field(default=None, description="面试题目")
+    content: str | None = Field(default=None, description="评分报告内容（type=report 时有值）")
+    msg: str | None = Field(default=None, description="提示/错误消息")
+    session_id: str | None = Field(default=None, description="会话 ID（新会话时返回）")
+
+    model_config = {"from_attributes": True}
