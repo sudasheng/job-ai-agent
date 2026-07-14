@@ -1,4 +1,4 @@
-"""多路检索器 —— 整合 Query 改写、向量检索、重排序。"""
+"""多路检索器 —— 整合 Query 改写、向量检索、重排序、混合检索。"""
 
 from __future__ import annotations
 
@@ -107,6 +107,41 @@ class MultiPathRetriever:
             collections=collection_names,
             k_per_collection=top_k,
         )
+
+    async def hybrid_retrieve(
+        self,
+        query: str,
+        top_k: int = 5,
+        collection_name: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """混合检索 —— BM25 + 向量语义检索，RRF 排名融合。
+
+        比纯向量检索多了关键词精确匹配能力，
+        适合岗位 JD 中包含专业术语的场景。
+
+        Args:
+            query: 用户查询
+            top_k: 返回结果数
+            collection_name: ChromaDB 集合名
+
+        Returns:
+            融合后的检索结果
+        """
+        try:
+            from app.rag.hybrid_retriever import get_hybrid_retriever
+            hybrid = get_hybrid_retriever()
+            return await hybrid.hybrid_search(
+                query=query,
+                top_k=top_k,
+                collection_name=collection_name,
+            )
+        except Exception as e:
+            logger.warning("混合检索失败，回退到纯向量检索: %s", e)
+            return self._vector_store.multi_search(
+                query,
+                collections=[collection_name] if collection_name else None,
+                k_per_collection=top_k,
+            )
 
     @staticmethod
     def _parse_json(raw: str) -> dict[str, Any]:

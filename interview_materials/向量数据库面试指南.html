@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>向量数据库面试指南 - AI 面试 Agent 项目</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            line-height: 1.7;
+        }
+
+        /* Hero */
+        .hero {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 50%, #1a1a2e 100%);
+            padding: 80px 20px 60px;
+            text-align: center;
+            border-bottom: 1px solid #1e293b;
+        }
+        .hero h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, #60a5fa, #a78bfa, #f472b6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 16px;
+        }
+        .hero p { color: #94a3b8; font-size: 1.1rem; max-width: 600px; margin: 0 auto; }
+
+        /* Layout */
+        .container { max-width: 1100px; margin: 0 auto; padding: 40px 20px; }
+
+        /* Nav */
+        .nav {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 20px 24px;
+            margin-bottom: 40px;
+            position: sticky;
+            top: 10px;
+            z-index: 100;
+        }
+        .nav h3 { color: #60a5fa; margin-bottom: 12px; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; }
+        .nav-links { display: flex; flex-wrap: wrap; gap: 8px; }
+        .nav-links a {
+            color: #94a3b8;
+            text-decoration: none;
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+        .nav-links a:hover { background: #334155; color: #e2e8f0; border-color: #475569; }
+
+        /* Section */
+        .section {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 32px;
+            margin-bottom: 24px;
+        }
+        .section h2 {
+            font-size: 1.5rem;
+            color: #60a5fa;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #334155;
+        }
+        .section h3 { color: #a78bfa; margin: 20px 0 12px; font-size: 1.1rem; }
+
+        /* Code */
+        .code-block {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin: 12px 0;
+            overflow-x: auto;
+            font-family: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+        .code-block .comment { color: #64748b; }
+        .code-block .keyword { color: #c084fc; }
+        .code-block .string { color: #34d399; }
+        .code-block .func { color: #60a5fa; }
+        .code-block .cls { color: #fbbf24; }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+            font-size: 0.9rem;
+        }
+        th {
+            background: #334155;
+            color: #60a5fa;
+            padding: 12px 16px;
+            text-align: left;
+            font-weight: 600;
+        }
+        td {
+            padding: 10px 16px;
+            border-bottom: 1px solid #1e293b;
+        }
+        tr:nth-child(even) td { background: rgba(30, 41, 59, 0.5); }
+
+        /* Flow diagram */
+        .flow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 20px 0;
+        }
+        .flow-step {
+            background: #334155;
+            border: 1px solid #475569;
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-size: 0.85rem;
+            color: #e2e8f0;
+            text-align: center;
+            min-width: 100px;
+        }
+        .flow-step.highlight { border-color: #60a5fa; color: #60a5fa; }
+        .flow-arrow { color: #475569; font-size: 1.2rem; }
+
+        /* QA */
+        .qa-item {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 10px;
+            margin: 16px 0;
+            overflow: hidden;
+        }
+        .qa-question {
+            padding: 16px 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 600;
+            color: #f472b6;
+            transition: background 0.2s;
+        }
+        .qa-question:hover { background: #1e293b; }
+        .qa-question::before { content: "Q"; background: #f472b6; color: #0f172a; width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; flex-shrink: 0; }
+        .qa-answer {
+            padding: 0 20px 16px 60px;
+            color: #94a3b8;
+            display: none;
+            line-height: 1.8;
+        }
+        .qa-item.open .qa-answer { display: block; }
+        .qa-item.open .qa-question { color: #60a5fa; }
+        .qa-item.open .qa-question::before { background: #60a5fa; }
+
+        /* Tags */
+        .tag {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin: 2px;
+        }
+        .tag-blue { background: rgba(96, 165, 250, 0.15); color: #60a5fa; }
+        .tag-green { background: rgba(52, 211, 153, 0.15); color: #34d399; }
+        .tag-purple { background: rgba(192, 132, 252, 0.15); color: #c084fc; }
+        .tag-yellow { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
+        .tag-red { background: rgba(248, 113, 113, 0.15); color: #f87171; }
+
+        /* Architecture diagram */
+        .arch-diagram {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 30px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .arch-layer {
+            border: 1px dashed #475569;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 12px 0;
+            position: relative;
+        }
+        .arch-layer::before {
+            content: attr(data-label);
+            position: absolute;
+            top: -10px;
+            left: 16px;
+            background: #0f172a;
+            padding: 0 8px;
+            font-size: 0.75rem;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .arch-box {
+            display: inline-block;
+            background: #1e293b;
+            border: 1px solid #475569;
+            border-radius: 6px;
+            padding: 8px 16px;
+            margin: 4px;
+            font-size: 0.85rem;
+        }
+        .arch-box.primary { border-color: #60a5fa; color: #60a5fa; }
+        .arch-box.secondary { border-color: #a78bfa; color: #a78bfa; }
+        .arch-box.accent { border-color: #f472b6; color: #f472b6; }
+
+        /* Tips */
+        .tip {
+            background: rgba(96, 165, 250, 0.08);
+            border-left: 3px solid #60a5fa;
+            padding: 12px 16px;
+            margin: 12px 0;
+            border-radius: 0 6px 6px 0;
+            font-size: 0.9rem;
+        }
+        .tip-warn {
+            background: rgba(251, 191, 36, 0.08);
+            border-left-color: #fbbf24;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 40px 20px;
+            color: #475569;
+            font-size: 0.8rem;
+            border-top: 1px solid #1e293b;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 1.8rem; }
+            .section { padding: 20px; }
+            .flow { flex-direction: column; }
+            .flow-arrow { transform: rotate(90deg); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="hero">
+    <h1>向量数据库面试指南</h1>
+    <p>基于 AI 面试 Agent 项目的 ChromaDB + RAG 实践，涵盖技术选型、核心代码、面试问答</p>
+</div>
+
+<div class="container">
+
+<!-- Navigation -->
+<nav class="nav">
+    <h3>目录导航</h3>
+    <div class="nav-links">
+        <a href="#tech-stack">技术选型</a>
+        <a href="#architecture">架构设计</a>
+        <a href="#rag-flow">RAG 流程</a>
+        <a href="#code">核心代码</a>
+        <a href="#storage">存储结构</a>
+        <a href="#data-scale">数据量</a>
+        <a href="#optimization">优化方向</a>
+        <a href="#qa">面试问答</a>
+    </div>
+</nav>
+
+<!-- 1. 技术选型 -->
+<section class="section" id="tech-stack">
+    <h2>一、技术选型</h2>
+
+    <h3>向量数据库选型对比</h3>
+    <table>
+        <thead>
+            <tr><th>方案</th><th>优势</th><th>劣势</th><th>适用场景</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><span class="tag tag-green">ChromaDB (本项目)</span></td>
+                <td>轻量、Python原生、无需独立部署</td>
+                <td>不适合超大规模</td>
+                <td>中小项目、快速原型</td>
+            </tr>
+            <tr>
+                <td><span class="tag tag-blue">Milvus</span></td>
+                <td>分布式、支持亿级数据</td>
+                <td>部署复杂、资源占用大</td>
+                <td>企业级大规模</td>
+            </tr>
+            <tr>
+                <td><span class="tag tag-purple">Pinecone</span></td>
+                <td>全托管、免运维</td>
+                <td>付费、数据在外部</td>
+                <td>不想自建</td>
+            </tr>
+            <tr>
+                <td><span class="tag tag-yellow">pgvector</span></td>
+                <td>复用PostgreSQL、混合查询</td>
+                <td>向量性能不如专用库</td>
+                <td>已有PG、中等数据量</td>
+            </tr>
+            <tr>
+                <td><span class="tag tag-red">FAISS</span></td>
+                <td>极致性能、开源免费</td>
+                <td>纯库、无持久化、需自建服务</td>
+                <td>离线批处理</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h3>Embedding 模型选型</h3>
+    <table>
+        <thead>
+            <tr><th>模型</th><th>维度</th><th>特点</th><th>本项目</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><span class="tag tag-green">千问 text-embedding-v3</span></td>
+                <td>1024</td>
+                <td>中文优秀、价格极低</td>
+                <td>使用</td>
+            </tr>
+            <tr>
+                <td>OpenAI text-embedding-3-small</td>
+                <td>1536</td>
+                <td>英文为主、价格 $0.02/1M</td>
+                <td>-</td>
+            </tr>
+            <tr>
+                <td>BGE-M3</td>
+                <td>1024</td>
+                <td>免费本地部署、多语言</td>
+                <td>-</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="tip">
+        <strong>选型理由：</strong>本项目面试题库数据量在千级别，ChromaDB 完全够用。千问 Embedding 中文理解优秀、国内延迟低、价格极低，适合高频面试场景。
+    </div>
+</section>
+
+<!-- 2. 架构设计 -->
+<section class="section" id="architecture">
+    <h2>二、架构设计</h2>
+
+    <div class="arch-diagram">
+        <div class="arch-layer" data-label="应用层">
+            <div class="arch-box primary">LangGraph 主图</div>
+            <div class="arch-box secondary">ReAct Agent</div>
+            <div class="arch-box accent">面试评分</div>
+        </div>
+        <div style="color: #475569; font-size: 1.5rem;">&#8595;</div>
+        <div class="arch-layer" data-label="RAG 检索层">
+            <div class="arch-box primary">Query 改写 (LLM)</div>
+            <div class="arch-box secondary">多路检索器</div>
+            <div class="arch-box accent">结果去重排序</div>
+        </div>
+        <div style="color: #475569; font-size: 1.5rem;">&#8595;</div>
+        <div class="arch-layer" data-label="向量存储层">
+            <div class="arch-box primary">ChromaDB</div>
+            <div class="arch-box secondary">HNSW 索引</div>
+            <div class="arch-box accent">SQLite 持久化</div>
+        </div>
+        <div style="color: #475569; font-size: 1.5rem;">&#8595;</div>
+        <div class="arch-layer" data-label="Embedding 层">
+            <div class="arch-box primary">千问 text-embedding-v3</div>
+            <div class="arch-box secondary">1024 维向量</div>
+        </div>
+    </div>
+
+    <h3>核心设计思想</h3>
+    <table>
+        <thead><tr><th>层级</th><th>职责</th><th>技术</th></tr></thead>
+        <tbody>
+            <tr><td>RAG 检索层</td><td>Query 改写 + 多路检索 + 去重排序</td><td>LangChain Retriever</td></tr>
+            <tr><td>向量存储层</td><td>文档存储、向量索引、相似度检索</td><td>ChromaDB + HNSW</td></tr>
+            <tr><td>Embedding 层</td><td>文本转向量</td><td>千问 text-embedding-v3</td></tr>
+            <tr><td>文档处理层</td><td>文本切分、结构化、Metadata</td><td>RecursiveCharacterTextSplitter</td></tr>
+        </tbody>
+    </table>
+</section>
+
+<!-- 3. RAG 流程 -->
+<section class="section" id="rag-flow">
+    <h2>三、RAG 检索流程</h2>
+
+    <div class="flow">
+        <div class="flow-step highlight">用户输入岗位 JD</div>
+        <div class="flow-arrow">&#8594;</div>
+        <div class="flow-step">Query 改写 (LLM)</div>
+        <div class="flow-arrow">&#8594;</div>
+        <div class="flow-step highlight">多路向量检索</div>
+        <div class="flow-arrow">&#8594;</div>
+        <div class="flow-step">结果去重排序</div>
+        <div class="flow-arrow">&#8594;</div>
+        <div class="flow-step highlight">注入 Prompt</div>
+        <div class="flow-arrow">&#8594;</div>
+        <div class="flow-step">LLM 生成面试题</div>
+    </div>
+
+    <h3>Query 改写示例</h3>
+    <div class="code-block">
+<span class="comment"># 用户输入</span>
+"3年Python后端开发，FastAPI、Redis、MySQL"
+
+<span class="comment"># LLM 改写输出</span>
+{
+  <span class="string">"rewritten_queries"</span>: [
+    <span class="string">"Python后端面试题"</span>,
+    <span class="string">"FastAPI面试考点"</span>,
+    <span class="string">"Redis缓存面试题"</span>,
+    <span class="string">"MySQL索引优化面试"</span>
+  ],
+  <span class="string">"keywords"</span>: [<span class="string">"Python"</span>, <span class="string">"FastAPI"</span>, <span class="string">"Redis"</span>, <span class="string">"MySQL"</span>],
+  <span class="string">"tech_stack"</span>: [<span class="string">"Python"</span>, <span class="string">"FastAPI"</span>, <span class="string">"Redis"</span>, <span class="string">"MySQL"</span>]
+}
+    </div>
+
+    <div class="tip">
+        <strong>为什么需要 Query 改写？</strong>用户输入太长，语义被稀释。拆分为多个精准查询后，每个查询独立检索，召回率提升 20~30%。
+    </div>
+</section>
+
+<!-- 4. 核心代码 -->
+<section class="section" id="code">
+    <h2>四、核心代码详解</h2>
+
+    <h3>4.1 VectorStoreManager — 向量存储管理</h3>
+    <div class="code-block">
+<span class="keyword">class</span> <span class="cls">VectorStoreManager</span>:
+    <span class="keyword">def</span> <span class="func">__init__</span>(self):
+        <span class="comment"># ChromaDB 持久化客户端</span>
+        self._client = chromadb.<span class="func">PersistentClient</span>(
+            path=persist_dir,
+            settings=<span class="cls">ChromaSettings</span>(anonymized_telemetry=<span class="keyword">False</span>),
+        )
+        self._embeddings = <span class="func">get_embeddings</span>()  <span class="comment"># 千问 Embedding</span>
+
+    <span class="keyword">def</span> <span class="func">search</span>(self, query, k=5, filter=<span class="keyword">None</span>):
+        <span class="comment"># similarity_search_with_score 返回 [(Document, score), ...]</span>
+        <span class="comment"># score: L2 距离，越小越相似</span>
+        results = collection.<span class="func">similarity_search_with_score</span>(query, k=k, filter=filter)
+        <span class="keyword">return</span> [{<span class="string">"content"</span>: doc.page_content, <span class="string">"metadata"</span>: doc.metadata, <span class="string">"score"</span>: score} ...]
+
+    <span class="keyword">def</span> <span class="func">multi_search</span>(self, query, collections, k_per_collection):
+        <span class="comment"># 多集合并行搜索</span>
+        <span class="keyword">for</span> col_name <span class="keyword">in</span> collections:
+            results = self.<span class="func">search</span>(query, k=k_per_collection, collection_name=col_name)
+            all_results.<span class="func">extend</span>(results)
+        all_results.<span class="func">sort</span>(key=<span class="keyword">lambda</span> x: x[<span class="string">"score"</span>])  <span class="comment"># 按相似度排序</span>
+    </div>
+
+    <h3>4.2 MultiPathRetriever — 多路检索器</h3>
+    <div class="code-block">
+<span class="keyword">class</span> <span class="cls">MultiPathRetriever</span>:
+    <span class="keyword">async def</span> <span class="func">retrieve</span>(self, query, direction, top_k=5):
+        <span class="comment"># 1. Query 改写</span>
+        rewritten = <span class="keyword">await</span> self.<span class="func">rewrite_query</span>(query, direction)
+
+        <span class="comment"># 2. 多路检索</span>
+        <span class="keyword">for</span> rq <span class="keyword">in</span> rewritten_queries[:3]:
+            results = self._vector_store.<span class="func">multi_search</span>(rq, collections=...)
+
+        <span class="comment"># 3. 去重：同一文档只保留最高分</span>
+        seen_ids = <span class="func">set</span>()
+        <span class="keyword">for</span> r <span class="keyword">in</span> results:
+            <span class="keyword">if</span> doc_id <span class="keyword">not in</span> seen_ids:
+                seen_ids.<span class="func">add</span>(doc_id)
+                all_results.<span class="func">append</span>(r)
+
+        <span class="comment"># 4. 排序截断</span>
+        all_results.<span class="func">sort</span>(key=<span class="keyword">lambda</span> x: x[<span class="string">"score"</span>])
+        <span class="keyword">return</span> all_results[:top_k]
+    </div>
+
+    <h3>4.3 DocumentLoader — 文档切分</h3>
+    <div class="code-block">
+<span class="keyword">class</span> <span class="cls">DocumentLoader</span>:
+    <span class="keyword">def</span> <span class="func">__init__</span>(self):
+        self._splitter = <span class="cls">RecursiveCharacterTextSplitter</span>(
+            chunk_size=1000,      <span class="comment"># 每块最大 1000 字符</span>
+            chunk_overlap=200,    <span class="comment"># 块间重叠 200 字符（防止关键信息被切断）</span>
+            separators=[<span class="string">"\n\n"</span>, <span class="string">"\n"</span>, <span class="string">"。"</span>, <span class="string">"."</span>, <span class="string">" "</span>, <span class="string">""</span>],  <span class="comment"># 中文友好</span>
+        )
+
+    <span class="keyword">def</span> <span class="func">load_job</span>(self, job):
+        <span class="comment"># 结构化拼接 → 保证每个 chunk 包含完整岗位信息片段</span>
+        text = <span class="string">f"岗位名称: {title}\n公司名称: {company}\n..."</span>
+        metadata = {<span class="string">"type"</span>: <span class="string">"job"</span>, <span class="string">"job_id"</span>: id, <span class="string">"title"</span>: title, ...}
+        <span class="keyword">return</span> self.<span class="func">load_text</span>(text, metadata)
+    </div>
+</section>
+
+<!-- 5. 存储结构 -->
+<section class="section" id="storage">
+    <h2>五、存储表结构</h2>
+
+    <h3>Collection 规划</h3>
+    <table>
+        <thead><tr><th>Collection</th><th>用途</th><th>数据量</th><th>Metadata 字段</th></tr></thead>
+        <tbody>
+            <tr>
+                <td><span class="tag tag-blue">job_knowledge</span></td>
+                <td>岗位 JD 知识库</td>
+                <td>1000~10000</td>
+                <td>type, job_id, title, company, city</td>
+            </tr>
+            <tr>
+                <td><span class="tag tag-purple">interview_qa</span></td>
+                <td>面试题库</td>
+                <td>500~5000</td>
+                <td>type, direction, difficulty, question_type</td>
+            </tr>
+            <tr>
+                <td><span class="tag tag-green">resume_chunks</span></td>
+                <td>简历片段</td>
+                <td>每用户 5~20</td>
+                <td>type, user_id, section</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h3>单条 Document 结构</h3>
+    <div class="code-block">
+{
+  <span class="string">"id"</span>: <span class="string">"uuid-xxxx"</span>,
+  <span class="string">"content"</span>: <span class="string">"岗位名称: Python后端开发\n公司名称: XX科技\n经验要求: 3-5年\n..."</span>,
+  <span class="string">"metadata"</span>: {
+    <span class="string">"type"</span>: <span class="string">"job"</span>,
+    <span class="string">"job_id"</span>: <span class="string">"12345"</span>,
+    <span class="string">"title"</span>: <span class="string">"Python后端开发"</span>,
+    <span class="string">"company"</span>: <span class="string">"XX科技"</span>,
+    <span class="string">"city"</span>: <span class="string">"北京"</span>
+  },
+  <span class="string">"embedding"</span>: [0.0123, -0.0456, ..., 0.0789]  <span class="comment">// 1024 维</span>
+}
+    </div>
+
+    <h3>ChromaDB 底层文件</h3>
+    <div class="code-block">
+./data/chroma/
+├── chroma.sqlite3       <span class="comment"># 文档元数据、ID 映射</span>
+├── *.hnsw               <span class="comment"># HNSW 向量索引文件</span>
+└── *.parquet            <span class="comment"># 向量数据文件</span>
+    </div>
+</section>
+
+<!-- 6. 数据量 -->
+<section class="section" id="data-scale">
+    <h2>六、数据量评估</h2>
+
+    <h3>当前数据规模</h3>
+    <table>
+        <thead><tr><th>数据类型</th><th>预估条数</th><th>向量维度</th><th>存储大小</th></tr></thead>
+        <tbody>
+            <tr><td>岗位 JD</td><td>1000~5000</td><td>1024</td><td>~50MB</td></tr>
+            <tr><td>面试题库</td><td>500~2000</td><td>1024</td><td>~20MB</td></tr>
+            <tr><td>简历片段</td><td>每用户 10~30</td><td>1024</td><td>~1MB/用户</td></tr>
+        </tbody>
+    </table>
+
+    <h3>ChromaDB 性能参考</h3>
+    <table>
+        <thead><tr><th>数据量</th><th>本地检索延迟</th><th>远程检索延迟</th></tr></thead>
+        <tbody>
+            <tr><td>1万条</td><td><span class="tag tag-green">&lt;10ms</span></td><td>&lt;50ms</td></tr>
+            <tr><td>10万条</td><td><span class="tag tag-blue">&lt;50ms</span></td><td>&lt;100ms</td></tr>
+            <tr><td>100万条</td><td><span class="tag tag-yellow">&lt;200ms</span></td><td>&lt;500ms</td></tr>
+            <tr><td>1000万条</td><td><span class="tag tag-red">需分片优化</span></td><td>考虑 Milvus</td></tr>
+        </tbody>
+    </table>
+
+    <div class="tip">
+        <strong>结论：</strong>本项目数据量（千级别）完全在 ChromaDB 舒适区内，检索延迟 <10ms。
+    </div>
+</section>
+
+<!-- 7. 优化方向 -->
+<section class="section" id="optimization">
+    <h2>七、优化方向</h2>
+
+    <h3>检索质量优化</h3>
+    <table>
+        <thead><tr><th>方向</th><th>做法</th><th>效果</th></tr></thead>
+        <tbody>
+            <tr><td>Query 改写</td><td>LLM 生成多角度检索词（已实现）</td><td>召回率 +20~30%</td></tr>
+            <tr><td>重排序 Rerank</td><td>Cross-Encoder 二次排序</td><td>精准率 +15~25%</td></tr>
+            <tr><td>混合检索</td><td>向量 + BM25 关键词</td><td>召回率 +10~20%</td></tr>
+            <tr><td>Metadata 过滤</td><td>按 type/direction 预过滤</td><td>减少噪声、提速</td></tr>
+        </tbody>
+    </table>
+
+    <h3>性能优化</h3>
+    <table>
+        <thead><tr><th>方向</th><th>做法</th><th>效果</th></tr></thead>
+        <tbody>
+            <tr><td>批量写入</td><td>add_texts 批量而非逐条</td><td>写入速度 x10</td></tr>
+            <tr><td>向量量化</td><td>PQ/SQ8 压缩向量</td><td>内存减半</td></tr>
+            <tr><td>缓存</td><td>热门查询结果缓存</td><td>重复查询 &lt;1ms</td></tr>
+            <tr><td>增量索引</td><td>is_vectorized 标记（已实现）</td><td>只索引新增数据</td></tr>
+        </tbody>
+    </table>
+</section>
+
+<!-- 8. 面试问答 -->
+<section class="section" id="qa">
+    <h2>八、面试官可能问的问题</h2>
+
+    <div class="qa-item">
+        <div class="qa-question">Q1: 为什么用向量数据库而不是传统数据库做语义检索？</div>
+        <div class="qa-answer">
+            传统数据库（MySQL/ES）做的是<strong>关键词匹配</strong>，无法理解语义。比如搜"Python后端面试题"，传统数据库只能匹配包含这几个字的文档，搜不到"FastAPI开发考点"这种语义相关的内容。<br><br>
+            向量数据库将文本通过 Embedding 模型转为高维向量，通过<strong>余弦相似度/欧氏距离</strong>做语义匹配。"Python后端面试题"和"FastAPI开发考点"在向量空间中距离很近，能被检索到。<br><br>
+            本项目面试场景中，用户输入的岗位描述和题库中的知识点往往不是精确匹配，必须用语义检索。
+        </div>
+    </div>
+
+    <div class="qa-item">
+        <div class="qa-question">Q2: ChromaDB 的检索原理是什么？为什么快？</div>
+        <div class="qa-answer">
+            ChromaDB 底层使用 <strong>HNSW（Hierarchical Navigable Small World）</strong>算法做近似最近邻检索（ANN）。<br><br>
+            HNSW 是一个多层图结构：底层包含所有向量节点，上层是稀疏索引用于快速定位。搜索时从顶层开始，逐层向下贪心搜索，最终在底层找到近似最近邻。<br><br>
+            时间复杂度 O(log n)，远优于暴力搜索的 O(n)。1万条数据检索延迟 &lt;10ms。代价是需要额外内存存储图结构（约 1.5~2 倍向量内存）。
+        </div>
+    </div>
+
+    <div class="qa-item">
+        <div class="qa-question">Q3: 什么是 Embedding？维度越高越好吗？</div>
+        <div class="qa-answer">
+            Embedding 是将文本映射到高维向量空间的过程，语义相似的文本在向量空间中距离近。<br><br>
+            维度选择的权衡：<strong>维度越高</strong>语义表达越精细，但存储和计算成本越高；<strong>维度越低</strong>速度快、省内存，但可能丢失语义细节。<br><br>
+            业界常用维度：384/512（轻量）、768/1024（通用，本项目使用）、1536/3072（高精度）。实际经验：1024 维在大多数中文场景下足够，再高维度收益递减。
+        </div>
+    </div>
+
+    <div class="qa-item">
+        <div class="qa-question">Q4: 文本切分策略怎么设计？chunk_size 和 overlap 怎么定？</div>
+        <div class="qa-answer">
+            切分策略直接影响检索质量。<br><br>
+            <strong>chunk_size</strong>：太小（&lt;200）语义不完整，太大（&gt;2000）检索不精准，推荐 500~1500，本项目用 1000。<br><br>
+            <strong>chunk_overlap</strong>：防止关键信息被切断在两个 chunk 边界，推荐 chunk_size 的 10~20%，本项目用 200。<br><br>
+            <strong>separators</strong>：中文场景需要加"。"作为分隔符，优先按段落→句子→空格→字符逐级切分。<br><br>
+            本项目岗位 JD 采用结构化拼接（岗位名称+公司+经验+...），再统一切分，保证每个 chunk 包含完整的岗位信息片段。
+        </div>
+    </div>
+
+    <div class="qa-item">
+        <div class="qa-question">Q5: 什么是多路检索？为什么需要 Query 改写？</div>
+        <div class="qa-answer">
+            用户输入"3年Python后端，FastAPI、Redis、MySQL"，直接用这句话去检索可能效果不好，因为查询太长语义被稀释，不同角度的信息混在一起。<br><br>
+            <strong>Query 改写</strong>的做法：用 LLM 将用户输入拆分为多个精准查询："Python后端面试题"、"FastAPI面试考点"、"Redis缓存面试题"。每个查询单独检索，结果合并去重。<br><br>
+            好处：召回率显著提升（不同角度的结果都能被检索到），结果多样性更好。
+        </div>
+    </div>
+
+    <div class="qa-item">
+        <div class="qa-question">Q6: 向量数据库的数据量大了怎么办？如何水平扩展？</div>
+        <div class="qa-answer">
+            ChromaDB 是单机版，数据量到百万级别会遇到瓶颈。<br><br>
+            <strong>短期优化（不换库）</strong>：向量量化（PQ/SQ8）压缩向量减少内存、Metadata 预过滤缩小范围、分 Collection 按类型分集合。<br><br>
+            <strong>长期方案（换库）</strong>：Milvus（分布式，亿级）、pgvector（复用PG）、Qdrant（Rust实现，高性能）。<br><br>
+            <strong>迁移策略</strong>：抽象 VectorStoreManager 接口，底层可切换。LangChain 的 VectorStore 统一 API，换库只需改一行初始化代码。
+        </div>
+    </div>
+
+    <div class="qa-item">
+        <div class="qa-question">Q7: 如何评估检索质量？用什么指标？</div>
+        <div class="qa-answer">
+            <strong>离线评估</strong>：Recall@K（Top-K 中包含正确答案的比例）、MRR（正确答案排名的倒数均值）、NDCG（考虑排名位置的综合评分）。<br><br>
+            <strong>在线评估</strong>：点击率/采纳率、空结果率、延迟 P99。<br><br>
+            <strong>本项目评估方式</strong>：人工抽检（随机取 100 条检查 Top-3 相关性）、A/B 测试（对比有/无 RAG 的面试题质量）、监控 score 分布。
+        </div>
+    </div>
+
+    <div class="qa-item">
+        <div class="qa-question">Q8: 本项目 RAG 完整链路是什么？每步的目的？</div>
+        <div class="qa-answer">
+            完整链路：<strong>Query 改写 → 多路向量检索 → 去重排序 → Prompt 注入 → LLM 生成</strong><br><br>
+            1. <strong>Query 改写</strong>：用 LLM 拆分多角度检索查询，提升召回率<br>
+            2. <strong>多路向量检索</strong>：每个查询在多个 Collection 中并行搜索<br>
+            3. <strong>去重排序</strong>：同一文档去重后按相似度排序<br>
+            4. <strong>Prompt 注入</strong>：Top-K 结果作为上下文注入 Prompt<br>
+            5. <strong>LLM 生成</strong>：结合岗位 JD + 检索知识生成专业面试题<br><br>
+            好处：LLM 不是凭空出题，而是基于真实题库知识，题目更专业更有针对性。
+        </div>
+    </div>
+
+    <div class="qa-item">
+        <div class="qa-question">Q9: ChromaDB 和 ES 做语义检索的区别？</div>
+        <div class="qa-answer">
+            <strong>ChromaDB</strong>：纯向量相似度检索，语义理解强，部署简单（pip install），适合中小数据量。<br>
+            <strong>Elasticsearch</strong>：关键词 + 向量（8.x+），语义能力中等，部署复杂（JVM + 集群），适合大数据量 + 混合查询。<br><br>
+            本项目选 ChromaDB：数据量小、纯语义检索场景、无需复杂过滤。如果数据量增长，可考虑 ES 8.x 的 dense_vector + BM25 混合检索。
+        </div>
+    </div>
+
+    <div class="qa-item">
+        <div class="qa-question">Q10: Embedding 模型更新后，向量怎么处理？</div>
+        <div class="qa-answer">
+            Embedding 模型更新后，新旧向量不在同一空间，不能直接比较。<br><br>
+            <strong>方案一（推荐）</strong>：全量重索引，用新模型重新生成所有向量。数据量小时成本低。<br>
+            <strong>方案二</strong>：双写过渡期，新旧模型同时写入不同 Collection，检索时合并。<br>
+            <strong>方案三</strong>：向量转换，训练线性映射矩阵，精度损失大，不推荐。<br><br>
+            工程实践：metadata 中记录 embedding_model 和 embedding_version，版本变更时触发重索引。
+        </div>
+    </div>
+</section>
+
+</div>
+
+<div class="footer">
+    AI 面试 Agent 项目 | 向量数据库面试准备文档 | 2026-07-13
+</div>
+
+<script>
+    // QA toggle
+    document.querySelectorAll('.qa-question').forEach(q => {
+        q.addEventListener('click', () => {
+            q.parentElement.classList.toggle('open');
+        });
+    });
+
+    // Smooth scroll
+    document.querySelectorAll('.nav-links a').forEach(a => {
+        a.addEventListener('click', e => {
+            e.preventDefault();
+            const target = document.querySelector(a.getAttribute('href'));
+            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
+</script>
+
+</body>
+</html>

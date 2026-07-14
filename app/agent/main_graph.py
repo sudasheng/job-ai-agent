@@ -1,13 +1,14 @@
 """LangGraph 主图 —— 面试业务流程编排。
 
 主图负责固定业务流程（基于 LangGraph 状态机）：
-1. ReAct Agent（AgentExecutor）：采集岗位信息
+1. ReAct 采集（自循环）：Agent 推理 → 校验 → 信息不足则追问重试
 2. 第 1 题：生成首道面试题
 3. 第 2~9 题：用户作答后生成下一题
 4. 第 10 题答完：生成最终评分报告
 
 架构分层：
-- ReAct 采集：LangChain AgentExecutor + 外置 Tool（非 LangGraph）
+- ReAct 采集：LangChain create_agent + 外置 Tool（react_graph.py 内部封装）
+  主图只需调用 run_react_agent_step()，根据返回的 react_retry 决定自循环还是前进
 - 面试流程：LangGraph 状态机强约束，10 题严格交付
 """
 
@@ -19,7 +20,7 @@ from typing import Literal
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, StateGraph
 
-from app.agent.react_graph import run_react_agent
+from app.agent.react_graph import run_react_agent_step
 from app.agent.state import InterviewState
 from app.llm.deepseek import create_deepseek_llm
 from app.rag.retriever import get_retriever
@@ -47,20 +48,45 @@ async def _search_knowledge(job_text: str) -> str:
 # ==================== 主图节点 ====================
 
 async def _run_react_agent_node(state: InterviewState) -> dict:
-    """调用 ReAct Agent（AgentExecutor）采集岗位信息。
+    """调用 ReAct Agent 采集岗位信息。
 
-    AgentExecutor 自动执行 Thought→Action→Observation 循环，
-    采集结果写入 state['job_info'] / state['tip_msg']。
+    核心 ReAct 循环机制：
+    - 每次调用 run_react_agent_step() 为一步推理
+    - 如果上次有 tip_msg（追问），传入 previous_tip 续写上下文
+    - step 返回 react_retry=True 时，主图自循环回到本节点
+    - 用户下一轮输入（补充信息）触发再次推理，直到采集成功
+
+    main_graph 无需感知 Agent 内部怎么推理，只需关注 react_retry。
     """
+    # 获取上一步的追问提示（自循环时才有值）
+    previous_tip = state.get("tip_msg")
     max_loop = state.get("react_max_loop", 2)
-    result = await run_react_agent(
+
+    # 调用 ReAct Agent 执行一步推理
+    result = await run_react_agent_step(
         user_input=state["user_input"],
-        max_loop=max_loop,
+        previous_tip=previous_tip,
     )
-    return {
-        "job_info": result.get("job_info"),
-        "tip_msg": result.get("tip_msg"),
+
+    # 清理状态：准备写入本轮结果
+    update = {
+        "tip_msg": None,
+        "react_retry": False,
     }
+
+    if result.get("react_retry"):
+        # 信息不足，写入追问提示，等待用户补充后再循环
+        update["tip_msg"] = result["tip_msg"]
+        update["react_retry"] = True
+    else:
+        # 采集成功，写入岗位信息
+        update["job_info"] = result["job_info"]
+
+    # 追加推理历史（Annotated[List, operator.add] 会自动拼接）
+    if result.get("react_history"):
+        update["react_history"] = result["react_history"]
+
+    return update
 
 
 async def _gen_first_question_node(state: InterviewState) -> dict:
@@ -110,11 +136,9 @@ async def _gen_next_question_node(state: InterviewState) -> dict:
 
 async def _generate_score_report_node(state: InterviewState) -> dict:
     """十题全部答完，生成最终评分报告。"""
-    # 先记录最后一轮回答
     user_answer = state["user_input"]
     qa_pairs: list[str] = []
     question_list = state.get("question_list", [])
-    # answer_list 在 gen_next_question 中被 append，需要补上最后一轮
     all_answers = list(state.get("answer_list", [])) + [user_answer]
 
     for idx in range(len(question_list)):
@@ -140,11 +164,20 @@ async def _generate_score_report_node(state: InterviewState) -> dict:
 
 # ==================== 主图路由 ====================
 
-def _after_react_route(state: InterviewState) -> Literal["gen_first_question_node", "__end__"]:
-    """ReAct 子图退出后分支：成功出题 / 失败直接结束。"""
-    if state.get("job_info") is not None:
-        return "gen_first_question_node"
-    return END
+def _after_react_route(
+    state: InterviewState,
+) -> Literal["run_react_agent_node", "gen_first_question_node"]:
+    """ReAct 采集节点后路由（自循环核心）。
+
+    - react_retry=True → 回到自身节点，等待用户下一轮输入后再次推理
+    - job_info 有值 → 进入出题节点
+
+    完整自循环流程：
+    用户输入 → react_agent → 信息不足 → END(暂停) → 用户补充 → react_agent → ... → 成功 → gen_first_question
+    """
+    if state.get("react_retry"):
+        return "run_react_agent_node"
+    return "gen_first_question_node"
 
 
 def _main_graph_route(
@@ -156,7 +189,6 @@ def _main_graph_route(
         return "gen_next_question_node"
     elif round_num >= 10:
         return "generate_score_report_node"
-    # 兜底（不应到达）
     return "gen_next_question_node"
 
 
@@ -164,6 +196,13 @@ def _main_graph_route(
 
 def build_main_graph() -> StateGraph:
     """构建完整面试主图。
+
+    主图节点链路：
+    run_react_agent_node ──(自循环)──→ run_react_agent_node
+        │
+        └──(成功)──→ gen_first_question_node
+                        └──→ gen_next_question_node (1~9轮)
+                                └──→ generate_score_report_node → END
 
     Returns:
         已编译的主图，包含 checkpointer 支持多轮会话持久化。
@@ -179,21 +218,24 @@ def build_main_graph() -> StateGraph:
     # 主流程链路
     graph.set_entry_point("run_react_agent_node")
 
+    # ReAct 采集：自循环（信息不足 → END → 用户补充 → 回到自身）或前进
     graph.add_conditional_edges(
         "run_react_agent_node",
         _after_react_route,
         {
+            "run_react_agent_node": "run_react_agent_node",
             "gen_first_question_node": "gen_first_question_node",
-            END: END,
         },
     )
 
+    # 第1题 → 第2题
     graph.add_conditional_edges(
         "gen_first_question_node",
         _main_graph_route,
         {"gen_next_question_node": "gen_next_question_node"},
     )
 
+    # 第2~9题循环
     graph.add_conditional_edges(
         "gen_next_question_node",
         _main_graph_route,
@@ -203,6 +245,7 @@ def build_main_graph() -> StateGraph:
         },
     )
 
+    # 评分报告 → 结束
     graph.add_edge("generate_score_report_node", END)
 
     # 持久化会话记忆

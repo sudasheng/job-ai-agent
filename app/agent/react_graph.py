@@ -1,9 +1,15 @@
 """ReAct 采集 Agent —— 基于 LangChain create_agent + 外置 Tool 实现。
 
-使用 LangChain 标准 Agent API（create_agent）实现 ReAct 循环：
-- 工具定义：crawl_job_page / use_raw_text_job（外置 @tool）
-- Agent 自主决策调用哪个工具
-- 内置 max_iterations 防死循环 + 结果校验
+核心 ReAct 循环设计：
+- 每次调用 run_react_agent_step() 为一步 ReAct 推理
+- Agent 内部自主 Thought → Action(crawl/use_raw) → Observation
+- 推理完成后校验岗位信息是否完整
+- 不完整时返回 tip_msg + react_retry=True，供主图自循环重试
+- 支持上下文续写：将上次 tip_msg 作为提示，引导 Agent 继续追问
+
+外置 Tool：
+- crawl_job_page: 爬取招聘网页
+- use_raw_text_job: 使用用户粘贴的纯文字 JD
 """
 
 from __future__ import annotations
@@ -72,7 +78,7 @@ _REACT_SYSTEM_PROMPT = """你是岗位 JD 采集智能体，严格遵循 ReAct �
 规则：
 1. 用户输入是 http/https 链接 → 调用 crawl_job_page
 2. 用户输入是完整岗位文字描述 → 调用 use_raw_text_job
-3. 输入无有效岗位、无链接 → 不调用工具，输出提示要求用户补充：粘贴岗位文字或提供招聘网页链接
+3. 输入无有效岗位、无链接 → 不调用工具，输出提示要求用户补充
 4. 工具返回结果后，判断内容是否包含：岗位名称、工作年限、技术栈、工作职责四项核心信息
 5. 四项全部具备则任务完成；缺少则继续提示用户补充
 """
@@ -90,28 +96,43 @@ def _build_react_agent():
 # ==================== 对外接口 ====================
 
 
-async def run_react_agent(
+async def run_react_agent_step(
     user_input: str,
-    max_loop: int = 2,
+    previous_tip: Optional[str] = None,
 ) -> dict[str, Any]:
-    """运行 ReAct Agent 采集岗位信息。
+    """执行一步 ReAct Agent 推理。
 
-    使用 LangChain create_agent 执行 ReAct 循环，
-    采集完成后自动校验结果是否包含完整岗位信息。
+    核心 ReAct 循环逻辑：
+    1. 如果有 previous_tip（上次追问），将其作为上下文告诉 Agent 上一步的问题
+    2. Agent 自主 Thought → Action(crawl_job_page / use_raw_text_job) → Observation
+    3. 推理结束后，校验输出是否包含完整岗位信息
+    4. 完整 → 返回 {job_info, tip_msg=None, react_retry=False}
+    5. 不完整 → 返回 {job_info=None, tip_msg, react_retry=True}，供主图自循环重试
 
     Args:
-        user_input: 用户输入（岗位文字 / 招聘链接）
-        max_loop: 最大循环次数（由 Agent 内部控制）
+        user_input: 用户本轮输入（岗位文字 / 招聘链接 / 补充信息）
+        previous_tip: 上次追问提示（信息不足时传入，续写上下文）
 
     Returns:
-        {"job_info": "...", "tip_msg": None}  采集成功
-        {"job_info": None, "tip_msg": "..."}  采集失败 / 需用户补充
+        {
+            "job_info": str | None,
+            "tip_msg": str | None,
+            "react_retry": bool,  # 是否需要主图自循环重试
+            "react_history": list[str],  # 推理链记录
+        }
     """
     agent = _build_react_agent()
 
+    # 构建输入：续写上下文时将上次追问作为前缀
+    if previous_tip:
+        # 上次追问 + 用户本轮补充，拼成完整输入让 Agent 继续推理
+        input_content = f"【追问】{previous_tip}\n\n用户补充：{user_input}"
+    else:
+        input_content = user_input
+
     try:
         result = await agent.ainvoke(
-            {"messages": [{"role": "user", "content": user_input}]}
+            {"messages": [{"role": "user", "content": input_content}]}
         )
         # 提取最后一条 AI 消息作为输出
         messages = result.get("messages", [])
@@ -122,30 +143,38 @@ async def run_react_agent(
                 break
 
         # 校验结果是否包含完整岗位信息
-        job_info, tip_msg = await _validate_job_info(raw_output, max_loop)
-        return {"job_info": job_info, "tip_msg": tip_msg}
+        job_info, tip_msg, retry = await _validate_job_info(raw_output, previous_tip)
+
+        return {
+            "job_info": job_info,
+            "tip_msg": tip_msg,
+            "react_retry": retry,
+            "react_history": [f"Agent输出：{raw_output[:200]}"],
+        }
 
     except Exception as e:
         logger.error("ReAct Agent 执行失败: %s", e)
         return {
             "job_info": None,
             "tip_msg": f"岗位采集出错：{str(e)}，请重试。",
+            "react_retry": True,
+            "react_history": [f"Agent异常：{str(e)}"],
         }
 
 
 async def _validate_job_info(
     raw_output: str,
-    max_loop: int,
-) -> tuple[Optional[str], Optional[str]]:
+    previous_tip: Optional[str],
+) -> tuple[Optional[str], Optional[str], bool]:
     """校验 Agent 输出是否包含完整岗位 JD。
 
     Returns:
-        (job_info, tip_msg)
-        - job_info 非空表示采集成功
-        - tip_msg 非空表示需要提示用户
+        (job_info, tip_msg, react_retry)
+        - (job_info, None, False): 采集成功
+        - (None, tip_msg, True): 信息不足，需要追问重试
     """
     if not raw_output or len(raw_output) < 10:
-        return (None, "未获取到有效岗位信息，请粘贴完整岗位文字，或提供招聘网页链接。")
+        return (None, "未获取到有效岗位信息，请粘贴完整岗位文字，或提供招聘网页链接。", True)
 
     judge_prompt = f"""判断下面文本是否是完整有效的招聘岗位 JD，必须同时包含：岗位名称、工作年限、技术栈、工作职责。
 仅输出 true / false，不要多余文字。
@@ -156,9 +185,11 @@ async def _validate_job_info(
         judge_res = (await _react_llm.ainvoke(judge_prompt)).content.strip().lower()
     except Exception as e:
         logger.error("校验 LLM 调用失败: %s", e)
-        return (None, "校验服务暂时不可用，请稍后重试。")
+        return (None, "校验服务暂时不可用，请稍后重试。", True)
 
     if judge_res == "true":
-        return (raw_output, None)
+        return (raw_output, None, False)
     else:
-        return (None, "未识别到完整岗位信息，请粘贴完整岗位文字，或提供招聘网页链接。")
+        # 信息不足，生成追问提示
+        tip = "未识别到完整的岗位 JD（需包含：岗位名称、工作年限、技术栈、工作职责）。请粘贴完整的岗位文字，或提供招聘网页链接。"
+        return (None, tip, True)

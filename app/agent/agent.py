@@ -71,6 +71,7 @@ class JobAIAgent:
                 "user_input": user_input,
                 "job_info": None,
                 "react_max_loop": 2,
+                "react_retry": False,
                 "react_history": [],
                 "rag_knowledge": None,
                 "question_list": [],
